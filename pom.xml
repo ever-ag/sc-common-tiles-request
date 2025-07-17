@@ -57,38 +57,51 @@ under the License.
         <module>tiles-request-mustache</module>
         <module>assembly</module>
     </modules>
-    <distributionManagement>
-        <site>
-            <id>apache-site</id>
-            <url>scm:svn:https://svn.apache.org/repos/asf/tiles/site/staging/tiles-request</url>
-        </site>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
+<!--    <distributionManagement>-->
+<!--        <site>-->
+<!--            <id>apache-site</id>-->
+<!--            <url>scm:svn:https://svn.apache.org/repos/asf/tiles/site/staging/tiles-request</url>-->
+<!--        </site>-->
+<!--        <snapshotRepository>-->
+<!--            <id>ossrh</id>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
+<!--    </distributionManagement>-->
+<!--    <repositories>-->
+<!--        <repository>-->
+<!--            <id>central</id>-->
+<!--            <url>https://repo1.maven.org/maven2/</url>-->
+<!--        </repository>-->
+<!--        <repository>-->
+<!--            <id>Sonatype repository</id>-->
+<!--            <name>Sonatype's Maven repository</name>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>-->
+<!--        </repository>-->
+<!--    </repositories>-->
     <repositories>
         <repository>
-            <id>central</id>
-            <url>https://repo1.maven.org/maven2/</url>
-        </repository>
-        <repository>
-            <id>Sonatype repository</id>
-            <name>Sonatype's Maven repository</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/ever-ag/all</url>
         </repository>
     </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>central</id>
-            <url>https://repo1.maven.org/maven2/</url>
-        </pluginRepository>
-        <pluginRepository>
-            <id>Sonatype repository</id>
-            <name>Sonatype's Maven repository</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-        </pluginRepository>
-    </pluginRepositories>
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/ever-ag/sc-common-tiles-request</url>
+        </repository>
+    </distributionManagement>
+<!--    <pluginRepositories>-->
+<!--        <pluginRepository>-->
+<!--            <id>central</id>-->
+<!--            <url>https://repo1.maven.org/maven2/</url>-->
+<!--        </pluginRepository>-->
+<!--        <pluginRepository>-->
+<!--            <id>Sonatype repository</id>-->
+<!--            <name>Sonatype's Maven repository</name>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>-->
+<!--        </pluginRepository>-->
+<!--    </pluginRepositories>-->
 
     <build>
         <pluginManagement>
@@ -183,17 +196,18 @@ under the License.
                 </configuration>
             </plugin>
 -->
-            <plugin>
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>1.7.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <serverId>ossrh</serverId>
-                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
-                </configuration>
-            </plugin>
+            <!--      in mvn deploy this is giving error so commented -->
+<!--            <plugin>-->
+<!--                <groupId>org.sonatype.plugins</groupId>-->
+<!--                <artifactId>nexus-staging-maven-plugin</artifactId>-->
+<!--                <version>1.7.0</version>-->
+<!--                <extensions>true</extensions>-->
+<!--                <configuration>-->
+<!--                    <serverId>ossrh</serverId>-->
+<!--                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>-->
+<!--                    <autoReleaseAfterClose>true</autoReleaseAfterClose>-->
+<!--                </configuration>-->
+<!--            </plugin>-->
         </plugins>
 
         <defaultGoal>install</defaultGoal>
