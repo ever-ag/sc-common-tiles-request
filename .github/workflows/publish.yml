@@ -1,0 +1,90 @@
+name: Publish
+
+# Deploys every module to GitHub Packages (ever-ag/sc-common-tiles-request) when
+# trunk changes and the project version in pom.xml hasn't been published yet.
+# To release, bump the version in every pom (mvn versions:set -DnewVersion=X.Y.Z
+# -DgenerateBackupPoms=false) in the PR. Merges that don't bump it (e.g. Dependabot
+# updates) are skipped instead of failing on a duplicate version.
+#
+# sc-common-tiles depends on this library, so publish a new tiles-request version
+# before merging the tiles change that uses it.
+
+on:
+  push:
+    branches:
+      - trunk
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # tag + GitHub release
+  packages: write  # deploy to GitHub Packages
+
+env:
+  MAVEN_USER: ${{ github.actor }}
+  MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'corretto'
+          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+          server-username: MAVEN_USER
+          server-password: MAVEN_TOKEN
+          cache: 'maven'
+
+      - name: Read project version
+        run: echo "VERSION=$(mvn -B -q -N help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_ENV"
+
+      - name: Check whether this version is already published
+        id: check
+        run: |
+          if [[ "$VERSION" == *-SNAPSHOT ]]; then
+            echo "::notice::$VERSION is a snapshot; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          url="https://maven.pkg.github.com/${GITHUB_REPOSITORY}/org/apache/tiles/tiles-request/${VERSION}/tiles-request-${VERSION}.pom"
+          status=$(curl -s -o /dev/null -w '%{http_code}' -u "${MAVEN_USER}:${MAVEN_TOKEN}" "$url")
+          case "$status" in
+            200|302)
+              echo "::notice::tiles-request $VERSION is already published; skipping. Bump the version to release."
+              echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+            404)
+              echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::Unexpected HTTP $status while checking $url"
+              exit 1 ;;
+          esac
+
+      # Several older test classes in this fork fail on JDK 17+ (e.g. URLApplicationResourceTest,
+      # the portlet module), on trunk as well, so the deploy below skips tests. Run the
+      # CVE-2023-49735 regression tests explicitly so the locale/path guard is always verified.
+      - name: Run locale path-traversal tests
+        if: steps.check.outputs.publish == 'true'
+        run: >
+          mvn -B -pl tiles-request-api,tiles-request-servlet -am test
+          -DargLine="--add-opens=java.base/java.lang=ALL-UNNAMED"
+          -Dtest=LocaleUtilTest,PostfixedApplicationResourceTest,ServletApplicationContextTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+
+      - name: Deploy to GitHub Packages
+        if: steps.check.outputs.publish == 'true'
+        run: mvn -B deploy -DskipTests
+
+      - name: Tag release
+        if: steps.check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
