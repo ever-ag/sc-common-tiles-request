@@ -50,6 +50,9 @@ public abstract class PostfixedApplicationResource implements ApplicationResourc
 
     private static final Logger LOG = LoggerFactory.getLogger(PostfixedApplicationResource.class);
 
+    /** Maximum number of characters of an untrusted locale written to the log. */
+    private static final int MAX_LOGGED_LENGTH = 64;
+
     /** The path without its suffix and its locale postfix. */
     private String pathPrefix;
     /** The suffix. */
@@ -84,7 +87,7 @@ public abstract class PostfixedApplicationResource implements ApplicationResourc
                 LOG.warn("No supported matching language for locale \"" + localeString + "\". Using "
                         + getPath() + " as a non-localized resource path. see TILES-571");
 
-            } else if (!localeString.equalsIgnoreCase(getPostfix(locale).substring(1))) {
+            } else if (!localeString.equalsIgnoreCase(stripLeadingUnderscore(getPostfix(locale)))) {
                 LOG.warn("For resource " + localePath
                         + " the closest supported matching locale to \"" + localeString + "\" is \"" + locale
                         + "\". Using " + getPath() + " as resource path. see TILES-571");
@@ -129,11 +132,24 @@ public abstract class PostfixedApplicationResource implements ApplicationResourc
 
     /**
      * Get the postfix for that Locale.
+     * <p>
+     * A locale that is not safe to use in a path (see
+     * {@link LocaleUtil#isSafeLocale(Locale)}), e.g. one whose language is
+     * <code>"../../x"</code>, produces an empty postfix, so that the
+     * non-localized path is used instead of a traversal path (CVE-2023-49735).
+     * </p>
      * @param locale a locale.
      * @return the matching postfix.
      */
     private static final String getPostfix(Locale locale) {
         if (locale == null) {
+            return "";
+        }
+        if (!LocaleUtil.isSafeLocale(locale)) {
+            // string concatenation (as elsewhere in this class) keeps this
+            // working with the old slf4j-api versions found on some classpaths
+            LOG.warn("Ignoring unsafe locale \"" + escapeForLog(locale)
+                    + "\" while building a localized resource path; using the non-localized path instead.");
             return "";
         }
 
@@ -152,6 +168,42 @@ public abstract class PostfixedApplicationResource implements ApplicationResourc
                     builder.append(variant);
                 }
             }
+        }
+        return builder.toString();
+    }
+
+    /**
+     * Removes the leading <code>'_'</code> of a postfix, if any.
+     * @param postfix the postfix.
+     * @return the postfix without its leading underscore.
+     */
+    private static String stripLeadingUnderscore(String postfix) {
+        return postfix.startsWith("_") ? postfix.substring(1) : postfix;
+    }
+
+    /**
+     * Renders an untrusted locale so that it can be written to a log safely:
+     * every character other than ASCII letters, digits, <code>'_'</code> and
+     * <code>'-'</code> is escaped as <code>\\uXXXX</code>, and the result is
+     * truncated.
+     * @param locale the locale.
+     * @return the escaped representation.
+     */
+    private static String escapeForLog(Locale locale) {
+        String value = String.valueOf(locale);
+        StringBuilder builder = new StringBuilder();
+        int length = Math.min(value.length(), MAX_LOGGED_LENGTH);
+        for (int i = 0; i < length; i++) {
+            char ch = value.charAt(i);
+            if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+                    || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-') {
+                builder.append(ch);
+            } else {
+                builder.append(String.format("\\u%04x", (int) ch));
+            }
+        }
+        if (value.length() > MAX_LOGGED_LENGTH) {
+            builder.append("...");
         }
         return builder.toString();
     }
@@ -260,6 +312,13 @@ public abstract class PostfixedApplicationResource implements ApplicationResourc
             if (!availableLocales.contains(result)) {
                 result = Locale.ROOT;
             }
+        } else if (!LocaleUtil.isSafeLocale(result)) {
+            // supported language and country, but a variant that cannot be
+            // used in a path: keep the closest safe locale (see TILES-571).
+            result = withoutVariant;
+        }
+        if (!LocaleUtil.isSafeLocale(result)) {
+            result = Locale.ROOT;
         }
         return result;
     }
