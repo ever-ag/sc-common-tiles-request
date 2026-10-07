@@ -122,6 +122,43 @@ public class ServletApplicationContextTest {
     }
 
     /**
+     * Test method for
+     * {@link ServletApplicationContext#getResource(ApplicationResource, Locale)}
+     * with locales that must not be concatenated into the path
+     * (CVE-2023-49735): only the non-localized path may be requested from the
+     * servlet context, and valid locales keep their localized path.
+     * @throws IOException If something goes wrong.
+     */
+    @Test
+    public void testGetResourceWithUnsafeLocale() throws IOException {
+        URL url = new URL("file:///servletContext/WEB-INF/tiles.xml");
+        URL urlEnUs = new URL("file:///servletContext/WEB-INF/tiles_en_US.xml");
+        Locale[] unsafeLocales = new Locale[] {
+            new Locale("../../etc/passwd"),
+            new Locale("en", "../x"),
+            new Locale("en", "US", "a/b"),
+            new Locale("en", "US", "..\\..\\x"),
+            new Locale("%2e%2e%2f"),
+            new Locale("/etc/passwd"),
+            new Locale("http://169.254.169.254/latest")
+        };
+        expect(servletContext.getResource("/WEB-INF/tiles.xml")).andReturn(url).times(1 + unsafeLocales.length);
+        expect(servletContext.getResource("/WEB-INF/tiles_en_US.xml")).andReturn(urlEnUs);
+
+        replay(servletContext);
+        ApplicationResource resource = context.getResource("/WEB-INF/tiles.xml");
+        for (Locale locale : unsafeLocales) {
+            ApplicationResource localized = context.getResource(resource, locale);
+            assertNotNull(localized);
+            assertEquals("/WEB-INF/tiles.xml", localized.getLocalePath());
+            assertEquals("/WEB-INF/tiles.xml", localized.getPath());
+        }
+        ApplicationResource resourceEnUs = context.getResource(resource, Locale.US);
+        assertEquals("/WEB-INF/tiles_en_US.xml", resourceEnUs.getLocalePath());
+        verify(servletContext);
+    }
+
+    /**
      * Test method for {@link ServletApplicationContext#getResources(String)}.
      * @throws IOException If something goes wrong.
      */
