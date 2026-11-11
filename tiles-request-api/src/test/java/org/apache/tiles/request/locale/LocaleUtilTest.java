@@ -48,4 +48,37 @@ public class LocaleUtilTest extends TestCase {
         assertEquals("The parent locale of 'es_ES_Traditional_WIN' is not correct",
                 parentLocale, LocaleUtil.getParentLocale(locale));
     }
+
+    /**
+     * Test method for {@link LocaleUtil#isSafeLocale(Locale)} with valid
+     * locales.
+     */
+    public void testIsSafeLocaleAcceptsValidLocales() {
+        assertTrue(LocaleUtil.isSafeLocale(Locale.ROOT));
+        assertTrue(LocaleUtil.isSafeLocale(Locale.ENGLISH));
+        assertTrue(LocaleUtil.isSafeLocale(Locale.US));
+        assertTrue(LocaleUtil.isSafeLocale(Locale.CANADA_FRENCH));
+        assertTrue(LocaleUtil.isSafeLocale(Locale.GERMAN));
+        assertTrue(LocaleUtil.isSafeLocale(new Locale("es", "ES", "TRADITIONAL")));
+        assertTrue(LocaleUtil.isSafeLocale(new Locale("es", "ES", "Traditional_WIN")));
+        assertTrue(LocaleUtil.isSafeLocale(new Locale("ja", "JP", "JP")));
+        assertTrue(LocaleUtil.isSafeLocale(new Locale("th", "TH", "TH")));
+        assertTrue(LocaleUtil.isSafeLocale(Locale.forLanguageTag("de-DE-1996-fonipa")));
+        assertTrue(LocaleUtil.isSafeLocale(Locale.forLanguageTag("sr-Latn-RS")));
+        assertTrue(LocaleUtil.isSafeLocale(Locale.forLanguageTag("es-419")));
+        for (Locale locale : Locale.getAvailableLocales()) {
+            assertTrue("JDK locale rejected: " + locale, LocaleUtil.isSafeLocale(locale));
+        }
+    }
+
+    /**
+     * Test method for {@link LocaleUtil#isSafeLocale(Locale)} with unsafe
+     * locales (CVE-2023-49735).
+     */
+    public void testIsSafeLocaleRejectsUnsafeLocales() {
+        assertFalse(LocaleUtil.isSafeLocale(null));
+        for (Locale locale : PostfixedApplicationResourceTest.unsafeLocales()) {
+            assertFalse("Unsafe locale accepted: " + locale, LocaleUtil.isSafeLocale(locale));
+        }
+    }
 }
